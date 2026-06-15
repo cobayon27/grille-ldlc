@@ -1,0 +1,24 @@
+{
+  "name": "Diagnostic Merchandising LDLC",
+  "short_name": "Diagnostic LDLC",
+  "description": "Grille de diagnostic merchandising LDLC",
+  "start_url": "./grille_diagnostic_LDLC.html",
+  "display": "standalone",
+  "background_color": "#F7F4EF",
+  "theme_color": "#3B2A1A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

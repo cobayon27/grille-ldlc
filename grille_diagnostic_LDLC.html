@@ -2,8 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Diagnostic Merchandising — LDLC</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Diagnostic LDLC">
+<meta name="theme-color" content="#3B2A1A">
+<link rel="manifest" href="manifest.json">
 <style>
   :root {
     --brown: #3B2A1A;
@@ -66,8 +71,9 @@
   .pillar-body { padding: 0 15px 12px; display: none; }
   .pillar-body.open { display: block; }
 
-  .criterion { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--cream-dark); }
+  .criterion { padding: 9px 0; border-top: 1px solid var(--cream-dark); }
   .criterion:first-child { border-top: none; }
+  .criterion-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .criterion-text { font-size: 13px; color: var(--text-muted); line-height: 1.4; flex: 1; }
   .btn-row { display: flex; gap: 5px; flex-shrink: 0; }
   .score-btn { width: 34px; height: 34px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--cream); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
@@ -75,6 +81,10 @@
   .score-btn.ok { background: var(--ok-bg); border-color: var(--ok-border); }
   .score-btn.warn { background: var(--warn-bg); border-color: var(--warn-border); }
   .score-btn.bad { background: var(--bad-bg); border-color: var(--bad-border); }
+  .criterion-comment { width: 100%; margin-top: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; color: var(--text); background: white; font-family: inherit; resize: none; min-height: 36px; display: none; }
+  .criterion-comment.visible { display: block; }
+  .criterion-comment:focus { outline: none; border-color: var(--brown-light); }
+  .criterion-comment::placeholder { color: var(--text-muted); }
 
   .pillar-note { width: 100%; margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; color: var(--text); background: var(--cream); font-family: inherit; resize: none; min-height: 44px; }
   .pillar-note:focus { outline: none; border-color: var(--brown-light); background: white; }
@@ -204,10 +214,14 @@ const PILLARS = [
 ];
 
 const state = {};
+const comments = {};
 const notes = {};
 const open = {};
 PILLARS.forEach(p => {
-  p.criteria.forEach((_,i) => state[p.id+'_'+i] = null);
+  p.criteria.forEach((_,i) => {
+    state[p.id+'_'+i] = null;
+    comments[p.id+'_'+i] = '';
+  });
   notes[p.id] = '';
   open[p.id] = false;
 });
@@ -243,13 +257,18 @@ function render() {
       <div class="pillar-body ${isOpen?'open':''}">
         ${p.criteria.map((c,i) => {
           const v = state[p.id+'_'+i];
+          const cmt = comments[p.id+'_'+i];
+          const showComment = v === 'warn' || v === 'bad' || cmt;
           return `<div class="criterion">
-            <div class="criterion-text">${c}</div>
-            <div class="btn-row">
-              <button class="score-btn ${v==='ok'?'ok':''}" onclick="setScore('${p.id}',${i},'ok')" title="Conforme">✓</button>
-              <button class="score-btn ${v==='warn'?'warn':''}" onclick="setScore('${p.id}',${i},'warn')" title="À améliorer">~</button>
-              <button class="score-btn ${v==='bad'?'bad':''}" onclick="setScore('${p.id}',${i},'bad')" title="Non conforme">✕</button>
+            <div class="criterion-top">
+              <div class="criterion-text">${c}</div>
+              <div class="btn-row">
+                <button class="score-btn ${v==='ok'?'ok':''}" onclick="setScore('${p.id}',${i},'ok')" title="Conforme">✓</button>
+                <button class="score-btn ${v==='warn'?'warn':''}" onclick="setScore('${p.id}',${i},'warn')" title="À améliorer">~</button>
+                <button class="score-btn ${v==='bad'?'bad':''}" onclick="setScore('${p.id}',${i},'bad')" title="Non conforme">✕</button>
+              </div>
             </div>
+            <textarea class="criterion-comment ${showComment?'visible':''}" placeholder="Commentaire…" onchange="comments['${p.id+'_'+i}']=this.value" id="cmt-${p.id}-${i}">${cmt}</textarea>
           </div>`;
         }).join('')}
         <textarea class="pillar-note" placeholder="Observations…" onchange="notes['${p.id}']=this.value">${notes[p.id]}</textarea>
@@ -291,6 +310,7 @@ function updateScore() {
 function resetAll() {
   if (!confirm('Réinitialiser toute la grille ?')) return;
   Object.keys(state).forEach(k => state[k]=null);
+  Object.keys(comments).forEach(k => comments[k]='');
   PILLARS.forEach(p => notes[p.id]='');
   document.getElementById('f-magasin').value='';
   document.getElementById('f-visiteur').value='';
@@ -316,8 +336,9 @@ function buildPrompt() {
     const issues = [];
     p.criteria.forEach((c,i) => {
       const v = state[p.id+'_'+i];
-      if (v==='warn') issues.push('⚠️ À améliorer : '+c);
-      if (v==='bad') issues.push('❌ Non conforme : '+c);
+      const cmt = comments[p.id+'_'+i];
+      if (v==='warn') issues.push('⚠️ À améliorer : '+c+(cmt?' → '+cmt:''));
+      if (v==='bad') issues.push('❌ Non conforme : '+c+(cmt?' → '+cmt:''));
     });
     if (issues.length > 0) details += '\n\n'+p.num+' — '+p.title+':\n'+issues.join('\n');
     if (notes[p.id]) details += '\nNote terrain : '+notes[p.id];
@@ -377,6 +398,10 @@ function copyPlan() {
 }
 
 render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
